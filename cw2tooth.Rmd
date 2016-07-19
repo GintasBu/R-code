@@ -1,0 +1,128 @@
+---
+title: "Exploration of ToothGrowth data"
+author: "GB"
+date: "February 9, 2016"
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document: default
+---
+
+```{r}
+library(plyr)
+library(ggplot2)
+```
+
+
+## Loading data and basic exploratory analysis
+
+Data are loaded and assigned to variable dataT. Quick look at data table size and top of the table:
+
+```{r, echo=TRUE}
+dataT<-ToothGrowth
+data_file_size<-dim(dataT)
+data_file_size
+topdata<-head(dataT)
+topdata
+class(dataT)
+```
+
+Lets plot length data (column len) for each category as defined by column supp. 
+```{r, echo=TRUE}
+qplot(dose, len, data=dataT, col=supp, ylab="Tooth Growth Length", xlab="Dose")
+
+```
+
+It appears that with increasing dose tooth length increases. Although for any given dose there is lots of variability in tooth growth length. Next we look into that.
+
+## Basic summary of data
+
+Summarizing data and getting averaged and standard deviation values for each supp and dose:
+```{r, echo=TRUE}
+dat<-ddply(dataT, .(supp, dose), summarize, mean=round(mean(len), 3), sd=round(sd(len), 3), N=length(len))
+dat
+```
+N here is a number of data points for specific supp and dose. sd - standard deviation, mean - average value.
+There were total `r length(unique(dat$dose))` doses used and they were `r unique(dat$dose)`. The range of mean values for tooth growth length was from `r min(dat$mean) ` to `r max(dat$mean)` for all doses and supp combined.
+
+## Exploration of statistical differences between supp for given dose.
+
+### Confidence intervals
+
+95% confidence intervals for dose=0.5 and supp OJ and VC are:
+```{r, echo=TRUE}
+ciOJ<-dat$mean[1]+c(-1,1)*qt(0.975, 9)*dat$sd[1]/sqrt(dat$N[1])
+ciVC<-dat$mean[4]+c(-1,1)*qt(0.975, 9)*dat$sd[4]/sqrt(dat$N[4])
+ciOJ
+ciVC
+```
+Numbers above indicated that intervals do not overlap. Although come close to each other and the figure above shows limited overlap in data points at dose=0.5.
+
+95% confidence intervals for dose=1:
+
+```{r, echo=TRUE}
+ciOJ1<-dat$mean[2]+c(-1,1)*qt(0.975, 9)*dat$sd[2]/sqrt(dat$N[2])
+ciVC1<-dat$mean[5]+c(-1,1)*qt(0.975, 9)*dat$sd[5]/sqrt(dat$N[5])
+ciOJ1
+ciVC1
+
+```
+
+Similarly as in the lowest dose case, for the dose =1, 95% confidence intervals did not overlap.
+
+And lastly, for the highest dose=2:
+
+```{r, echo=TRUE}
+ciOJ2<-dat$mean[3]+c(-1,1)*qt(0.975, 9)*dat$sd[3]/sqrt(dat$N[3])
+ciVC2<-dat$mean[6]+c(-1,1)*qt(0.975, 9)*dat$sd[6]/sqrt(dat$N[6])
+ciOJ2
+ciVC2
+
+```
+
+In contrary to the two previous cases with the lower doses, at the dose =2, 95% confidence intervals overlapped. 
+
+
+### Hypothesis testing, group confidence interval
+
+Null hypothesis is that for any dose both supp deliver the same tooth growth. This hypothesis is tested at 5% Type I error. 
+Here it is assumed that teeth groups are independent. 
+
+Here we have different variances, therefore need to calculate hypothetical degrees of freedom. Values below are from table dat, below is example for dose=0.5:
+```{r, echo=TRUE}
+sdoj<-4.46
+sdvc<-2.747
+moj<-13.23
+mvc<-7.98
+df<-(sdoj^2/10+sdvc^2/10)^2/((sdoj^2/10)^2/9+(sdvc^2/10)^2/9)
+groupinterval<-moj-mvc+c(-1,1)*qt(0.975, df)*sqrt(sdoj^2/10+sdvc^2/10)
+groupinterval
+
+```
+For dose=0.5, group interval `r groupinterval` is entirely above zero. Therefore, the null hypothesis that both supp OJ and VC deliver the same growth is rejected.
+Repeating for dose=1:
+```{r, echo=TRUE}
+sdoj<-3.911
+sdvc<-2.515
+moj<-22.70
+mvc<-16.77
+df<-(sdoj^2/10+sdvc^2/10)^2/((sdoj^2/10)^2/9+(sdvc^2/10)^2/9)
+groupinterval1<-moj-mvc+c(-1,1)*qt(0.975, df)*sqrt(sdoj^2/10+sdvc^2/10)
+groupinterval1
+```
+For dose=1, group interval `r groupinterval1` is entirely above zero. Therefore, the null hypothesis that both supp OJ and VC deliver the same growth is rejected at dose =1.
+Repeating for dose=2:
+```{r, echo=TRUE}
+sdoj<-2.655
+sdvc<-4.798
+moj<-26.06
+mvc<-26.14
+df<-(sdoj^2/10+sdvc^2/10)^2/((sdoj^2/10)^2/9+(sdvc^2/10)^2/9)
+groupinterval2<-moj-mvc+c(-1,1)*qt(0.975, df)*sqrt(sdoj^2/10+sdvc^2/10)
+groupinterval2
+```
+For dose=2, group interval `r groupinterval2` includes zero. Therefore, we fail to reject the null hypothesis that both supp OJ and VC deliver the same growth at dose =2.
+
+## Conclusions
+
+There is a difference in tooth growth for different supplements at lower doses 0.5 and 1. At those low doses 95% confidence intervals did not overlap with OJ supplement delivering longer tooth growth compared to supplement VC. However, at the higher dose of 2, both supplements delivered similar growths on average 26. 

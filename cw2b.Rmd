@@ -1,0 +1,112 @@
+---
+title: "Automatic or manual transmission better for MPG"
+author: "GB"
+date: "February 12, 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+library(datasets)
+
+## Executive summary
+
+Gas mileage, mpg, on cars with automatic versus gas mileage with manual transmissions were analyzed using mtcars data set. Displacement, weight, number of carburetors, etc, are variables that affect mpg. It was found that two types of transmissions tend to have different size engines, making direct of mpg comparison difficult. The model was chosen where disp, wt, carb and drat were chosen as regressors. Modeled mpg values showed indistinguishable differences in mpg between automatic and manual transmissions for engine size range where data is available for both transmissions. 
+
+## Loading data
+
+Data comes pre-installed in programming language R. It is mtcars data set, as per instructions. Dimensions are `r dim(mtcars)` and column names are `r names(mtcars)`
+
+## Exploratory analysis and hypothesis that mpg for both tranmissions on average are equal testing
+
+There are numerous variables that obviously correlate with mpg, such as displacement, weight and more. Other variables are categorical and the co-variance between them with mpg is not obvious from the scatter plot. To investigate further data is split in to two sets, auto and manu, according to automatic and manual transmission (variable am=0 for automatic, 1 for manual).
+```{r, echo=TRUE}
+auto<-mtcars[mtcars$am==0,]
+manu<-mtcars[mtcars$am==1,]
+tran<-data.frame(c("average", "standard deviation", "length"),
+                 c( mean(auto$mpg), sd(auto$mpg),  length(auto)),
+                 c( mean(manu$mpg), sd(manu$mpg),  length(manu)))
+names(tran)<-c("", "auto", "manu")
+tran
+sx<-tran$auto[2]; sy<-tran$manu[2]; mx<-tran$auto[1]; my<-tran$manu[1] 
+nx<-tran$auto[3]; ny<-tran$manu[3]
+```
+
+MPG average and standard deviation values are printed above for automatic and manual tramissions groups. Two independent group hypothesis test:
+```{r, echo=TRUE}
+df<-(sx^2/nx+sy^2/ny)^2/((sx^2/nx)^2/(nx-1)+(sy^2/ny)^2/(ny-1))
+interval<-mx-my+c(-1,1)*qt(0.975, df)*sqrt(sx^2/nx+sy^2/ny)
+interval
+```
+
+Confidence interval between two independent group test is `r interval` and does not include zero. It indicates that on average manual transmission cars have better gas mileage. 
+For more detailed look into mpg variability, mpg was plotted against displacement, disp for different transmission factors: automatic=0, manual =1. Linear models for added to 
+
+```{r, echo=TRUE}
+library(ggplot2)
+qplot(disp, mpg, data=mtcars, color=as.factor(am), xlab="Displacement, cu.in", ylab="MPG")+ geom_smooth(method = "lm", formula=y~x)
+
+```
+
+From this plot three things stand out: (1) cars with automatic transmission have range displacement ranging from 120 to 472, while manual transmission cars have displacement ranges from 70 to 350. There is no data for cars with automatic transmission having engines smaller than 120 cu.in. and no data for cars with larger than 350 cu.in engines that have manual transmissions. (2) linear regression slopes for automatic and manual transmission slopes are different. (3) Displacement size by itself does not explain the variability in mpg. 
+
+Variance inflation factor allows to get a first look on variables that are important in modelling mpg.
+```{r, echo=TRUE}
+library(car)
+ll<-lm(mpg~., data = mtcars)
+vif(ll)
+
+```
+
+Just looking at the variance inflation factors is impossible to determine what variables do not influence mpg. It appears as if they all do.  
+Difference in slopes between manual and auto transmissions could be due to different ranges in displacement assuming that mpg~disp is non-linear function. To choose the right model, diagnostics was performed deploying residuals plots.
+R-squared values are plotted on top of the figure. R-squared parameter is not suitable criteria in choosing the right model. Because,  adding more regressors does increase R-squared, regardless of the if that regressor is relevant to model or not, meaning it could be uncorrelated and still increase R-squared. From this plot it is obvious that adding displacement in non-linear matter did not improve the fit. Residual scatter around y=0 did not improve significantly. However, adding more variables, the range of residuals decreased, qualitatively pointing to a better fit. 
+
+For automatic transmission:
+```{r, echo=TRUE}
+eauto<-c(resid(lm(mpg~disp, data=auto)), resid(lm(mpg~disp+I(disp^2), data=auto)), 
+         resid(lm(mpg~disp+I(log(disp)), data=auto)),resid(lm(mpg~disp+wt, data=auto)),
+         resid(lm(mpg~disp+wt+carb, data=auto)),resid(lm(mpg~disp+wt+carb+drat, data=auto)))
+fauto<-factor(c(rep("Disp", nrow(auto)), rep("Disp+Disp^2", nrow(auto)),
+                rep("Disp+log(Disp)", nrow(auto)), rep("Disp+wt", nrow(auto)), 
+                rep("Disp+wt+carb", nrow(auto)),rep("Disp+wt+carb+drat", nrow(auto))))
+Ra21<-summary(lm(mpg~disp, data=auto))$r.squared
+Ra22<-summary(lm(mpg~disp+I(disp^2), data=auto))$r.squared
+Ra23<-summary(lm(mpg~disp+I(log(disp)), data=auto))$r.squared
+Ra24<-summary(lm(mpg~disp+wt, data=auto))$r.squared
+Ra25<-summary(lm(mpg~disp+wt+carb, data=auto))$r.squared
+Ra26<-summary(lm(mpg~disp+wt+carb+drat, data=auto))$r.squared
+ggplot(data.frame(eauto=eauto, fauto=fauto), aes(y=eauto, x=fauto))+
+  geom_dotplot(binaxis = "y",  stackdir = "center", binwidth = 0.1)+
+  geom_hline(yintercept=0)+xlab("Model regressors")+ylab("Residuals")+
+  ggtitle("Automatic Transmission")+
+  geom_text(data=NULL, x=1, y=5.4, label=round(Ra21,3))+
+  geom_text(data=NULL, x=2, y=5.4, label=round(Ra22,3))+
+  geom_text(data=NULL, x=3, y=5.4, label=round(Ra23,3))+
+  geom_text(data=NULL, x=4, y=5.4, label=round(Ra24,3))+
+  geom_text(data=NULL, x=5, y=5.4, label=round(Ra25,3))+
+  geom_text(data=NULL, x=6, y=5.4, label=round(Ra26,3))
+```
+
+For cars with manual transmission mpg (not plotted due to space limitation) has very different behavior when displacement is included in non-linear manner compared to similar plot  but for cars with automatic transmission (plot above). Residuals range was reduced in "Disp+Disp^2" and "Disp+log(Disp)" models compared to "Disp" model. Last two models "Disp+wt+carb" and "Disp+wt+carb+drat" yield to very similar fitting characteristics and "Disp+wt+carb" should be chosen as the one that is more simple.
+
+To compare automatic and manual transmission, it is better to choose the same model. Using model "Disp+wt+carb+drat", predicted mpg values were calculated for automatic and manual transmissions separately. Input regressors were used from mtcars data file.
+```{r, echo=TRUE}
+lla<-lm(mpg~disp+wt+carb+drat, data=auto)
+llm<-lm(mpg~disp+wt+carb+drat, data=manu)
+datacars<-mtcars
+datacars$pra<-predict(lla, datacars)
+datacars$prm<-predict(llm, datacars)
+ggplot(datacars, aes(x=disp, y=mpg))+geom_point(data=datacars[datacars$am==0,],
+  aes(x=disp, y=mpg),col="red")+geom_smooth(method="lm",  col="red")+
+  geom_point(data=datacars[datacars$am==1,], aes(x=disp, y=mpg), col="blue")+
+  geom_smooth(method="lm",  col="blue", aes(x=disp, y=prm))+xlab("Displacement, cu.in")
+```
+The above plot is different from the earlier similar plot by smooth lines. Here smooth lines were drawn over the modeled mpg values with red color marking for automatic and blue for manual transmission. Data points were replotted for reference. Note, that in displacement range of 100 to 200 cu.in. where data for both transmissions is available, there is no clear difference between models. At higher engine sizes (disp>200) mpg model derived using manual transmissions data is not reliable due to lack of data for that displacement size range, as well as for smaller engines (disp<100) mpg modeled data using automatic transmission cars data is not reliable due to lack of the corresponding data.
+
+## Conclusions
+
+On average manual transmission cars have better gas mileage. However, that happens due to the fact that cars with manual transmission tend to have smaller engines (smaller disp) compared to cars with automatic transmissions. Considering other variables such as displacement, weight, etc it is impossible to say which transmission is better for mpg. 

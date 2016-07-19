@@ -1,0 +1,75 @@
+---
+title: "CLT and exponential distribution"
+author: "GB"
+date: "February 8, 2016"
+output:
+    pdf_document:default
+---
+#Overview 
+This is exercise to investigate how sample properties change when number of samples is increased from 1 to 1000. Samples were simulated using random number generator from exponential distribution with rate 0.2. Sample mean and variances values and distributions are analyzed.
+
+#Simulations
+
+Following variables were pre-determined:
+```{r, echo=TRUE}
+lambda=0.2
+n=40
+```
+Those above are constants that will be used to simulate random variables from exponential distribution, with rate being lambda=0.2. Below 40 random values from the exponential distribution are generated. For reproducibility the random generator seed was set to constant. Simulated data is presented in histogram:
+
+```{r, echo=TRUE, results='hide'}
+set.seed(101010)
+dataexp<-rexp(n, lambda)
+hist(dataexp, breaks=10, xlab="Random values from exp distribution", ylab="Counts")
+m1<-mean(dataexp)
+```
+
+## q1. Sample mean versus theoretical mean.
+
+Mean value of the 40 random values from the exponential distribution is m1=`r mean(dataexp)`. While theoretical mean of the exponential distribution is 1/rate= `r 1/lambda`, where rate=lambda=0.2.
+The question what kind of distribution that mean follows?
+To answer that lets generate 40 random values from the exponential distributions, take a mean and repeat 1000 times. 
+
+```{r, echo=TRUE, cache=TRUE}
+m=1000
+mns<-0
+for (i in 1:1000) mns=c(mns, mean(rexp(40, lambda)))
+hist(mns, breaks=10,  xlab = "Mean", ylab="Counts")
+```
+
+The above histogram represents a distribution of 1000 mean values, where each sample was an average of 40 random values drawn from the exponential distribution. Reminder, the sample mean from random 40 values m1 was equal to `r m1`, significantly different from the theoretical value of `r lambda^(-1)`. However, the 1000 simulations distribution shows that mean value equals to  `r mean(mns)`. That is close to theoretical value of `r 1/lambda`. In essence Law of Large Numbers in action.
+
+##q2. Sample Variance vs Theoretical variance
+
+Sample variance of earlier generated 40 random numbers from the exponential distribution that were saved in variable dataexp, is:
+```{r, results='asis', echo=TRUE}
+var1<-var(dataexp)
+var1
+```
+
+However, theoretical variance for the exponential distribution is equal to `r lambda^(-2)`, calculated as lambda^(-2).
+The question is how that variance is distributed? Similarly as above in the mean simulations: lets generate 40 random values from the exponential distributions, take a variance and repeat 1000 times. 
+```{r, echo=TRUE, cache=TRUE}
+m=1000
+vr<-0
+for (i in 1:1000) vr=c(vr, var(rexp(40, lambda)))
+hist(vr, breaks=20,  xlab = "Variance", ylab="Counts")
+```
+
+The histogram shows variances distribution peaked close to the theoretical value of 25. The average value of the variances (from 1000 samples, where each sample is a variance of rexp(40, lambda)) is equal to `r mean(vr)`. Now compare that to one sample variance var1= `r var1` that was calculated above. As number of samples was increased from 1 to 1000, the variance value changed from `r var1` to `r mean(vr)` and approached to that of theoretical value of `r lambda^(-2)`.
+
+q3. Distribution of large number of samples vs distribution of large collection of 40 samples.
+
+Here we look into how distribution changes from large collection of exponential samples, to large collection of samples, where each sample is an average over 40 sub-samples.
+```{r, echo=TRUE}
+expsamples<-rexp(m, lambda)
+par(mfrow=c(1,2))
+hist(expsamples, breaks=20, xlab="1000 random exp samples", main = "not averaged", ylab="Counts")
+h<-hist(mns, breaks=20, xlab="1000 averages over 40 values", main = "averaged", ylab="Counts")
+xfit<-seq(min(mns), max(mns), length=40)
+yfit=dnorm(xfit, mean=mean(mns), sd=sd(mns))
+yfit<-yfit*diff(h$mids[1:2]*length(mns))
+lines(xfit, yfit, col='red', lwd=2)
+```
+
+The red line on the right plot marks normal distribution with mean value,  mean(mns)=`r mean(mns)` and standard deviation equal to sd(mns)=`r sd(mns)`.Histogram on the left shows distribution of random values, while the histogram on the right shows distribution of samples averaged over 40 values. Moreover, the distribution of averaged values is approximately normal.
